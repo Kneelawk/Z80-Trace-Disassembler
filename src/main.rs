@@ -1,5 +1,6 @@
 pub mod sparse;
 
+use crate::sparse::SparseVec;
 use clap::Parser;
 use csv::StringRecord;
 use std::collections::HashMap;
@@ -57,7 +58,7 @@ impl FromStr for DataType {
 fn main() {
     let Args { trace } = Args::parse();
 
-
+    let mut memory = SparseVec::new();
     for trace in trace {
         let mut csv = csv::ReaderBuilder::new()
             .has_headers(false)
@@ -85,14 +86,17 @@ fn main() {
                 let m1 = get(&header, &record, DataType::M1).expect("csv should have M1");
                 let mreq = get(&header, &record, DataType::MREQ).expect("csv should have MREQ");
                 let data = get(&header, &record, DataType::Data).expect("csv should have Data");
-                let address = get(&header, &record, DataType::Address).expect("csv should have address");
+                let address =
+                    get(&header, &record, DataType::Address).expect("csv should have address");
 
                 if m1 == 0 && mreq == 0 {
-
+                    memory.set(address as usize, data as u8);
                 }
             }
         }
     }
+
+    println!("memory: {memory:#X?}");
 }
 
 fn get(header: &HashMap<DataType, usize>, record: &StringRecord, ty: DataType) -> Option<u16> {
