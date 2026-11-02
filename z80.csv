@@ -1,27 +1,27 @@
 # Reference from https://clrhome.org/table/
 
-21    | ld   | hl,$%1%0         | Loads 'nn' into hl
-F9    | ld   | sp,hl            | Loads 'hl' into sp
-DD:21 | ld   | ix,$%1%0         | Loads 'nn' into ix
-DD:7E | ld   | a,(ix%s0)        | Loads the value pointed to by ix+'d' into a
+21    | ld   | hl, %1%0         | Loads 'nn' into hl
+F9    | ld   | sp, hl           | Loads 'hl' into sp
+DD:21 | ld   | ix, %1%0         | Loads 'nn' into ix
+DD:7E | ld   | a, (ix %s0)      | Loads the value pointed to by ix+'d' into a
 2F    | cpl  |                  | Inverts the contents of a
-D3    | out  | (%0),a           | Outputs a to the address with a in the high bits and 'n' in the low bits
-06    | ld   | b,%0             | Loads 'n' into b
+D3    | out  | (%0), a          | Outputs a to the address with a in the high bits and 'n' in the low bits
+06    | ld   | b, %0            | Loads 'n' into b
 CD    | call | %1%0             | Pushes the next instruction onto the stack and jumps to 'nn'
-11    | ld   | de,$%1%0         | Loads 'nn' into de
+11    | ld   | de, %1%0         | Loads 'nn' into de
 F5    | push | af               | Pushes the contents of af onto the stack
 E5    | push | hl               | Pushes the contents of hl onto the stack
 C5    | push | bc               | Pushes the contents of bc onto the stack
-19    | add  | hl,de            | Adds de to hl
-38    | jr   | c,%s0            | Jumps from the end of the instruction by the signed value of 'd' if the carry flag is set
-3E    | ld   | a,$%0            | Loads 'n' into a
-12    | ld   | (de),a           | Stores a into the address pointed to by de
-DD:36 | ld   | (ix%s0),%1       | Stores 'n' into the address pointed to by ix+'d'
+19    | add  | hl, de           | Adds de to hl
+38    | jr   | c, %s0           | Jumps from the end of the instruction by the signed value of 'd' if the carry flag is set
+3E    | ld   | a, %0            | Loads 'n' into a
+12    | ld   | (de), a          | Stores a into the address pointed to by de
+DD:36 | ld   | (ix%s0), %1      | Stores 'n' into the address pointed to by ix+'d'
 37    | scf  |                  | Sets the carry flag
 3F    | ccf  |                  | Inverts the carry flag
-86    | add  | a,(hl)           | Loads the value pointed to by hl and adds it to a
-30    | jr   | nc,%s0           | Jumps from the end of the instruction by the signed value of 'd' if the carry flag is not set
-DD:34 | inc  | (ix%s0)          | Increments the value at ix+'d'
+86    | add  | a, (hl)          | Loads the value pointed to by hl and adds it to a
+30    | jr   | nc, %s0          | Jumps from the end of the instruction by the signed value of 'd' if the carry flag is not set
+DD:34 | inc  | (ix %s0)         | Increments the value at ix+'d'
 23    | inc  | hl               | Increments hl
 10    | djnz | %s0              | Decrements b and jumps by 'd' from the end of this instruction if b is not zero
 76    | halt |                  | Suspends the cpu until interrupt
