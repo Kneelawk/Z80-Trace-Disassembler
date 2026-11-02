@@ -5,6 +5,7 @@ use crate::queue::FixedQueue;
 use clap::Parser;
 use csv::{StringRecord, Trim};
 use serde::{Deserialize, Serialize};
+use std::cmp::max;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 use std::fmt::{Formatter, UpperHex};
@@ -269,13 +270,21 @@ fn main() {
                             arg_format,
                             description,
                         } => {
-                            let args = format_args(&arg_format, &elements[index + 1..]);
+                            let mut consume = 0;
+                            let args =
+                                format_args(&arg_format, &elements[index + 1..], &mut consume);
                             let instr = format!(
-                                "{:<8}{:<16}; @{:04} - {}",
-                                mnemonic, args, element.sample_number, description
+                                "{:02X}  : {:<8}{:<16}; clock {:04} - {}",
+                                element.data, mnemonic, args, element.sample_number, description
                             );
-                            println!("{:04X}:   {}", element.address, instr);
+                            println!("{:04X}: {}", element.address, instr);
                             memory.insert(element.address as usize, instr);
+
+                            for _ in 0..consume {
+                                element_iter
+                                    .next()
+                                    .expect("consume element should always exist");
+                            }
                         }
                         InstructionInfo::Prefix { opcode } => {
                             let (index, element_1) = element_iter.next().expect(
@@ -289,13 +298,26 @@ fn main() {
                                 description,
                             }) = instr_extra_infos.get(&(*opcode, element_1.data))
                             {
-                                let args = format_args(&arg_format, &elements[index + 1..]);
+                                let mut consume = 0;
+                                let args =
+                                    format_args(&arg_format, &elements[index + 1..], &mut consume);
                                 let instr = format!(
-                                    "{:<8}{:<16}; @{:04} - {}",
-                                    mnemonic, args, element.sample_number, description
+                                    "{:02X}{:02X}: {:<8}{:<16}; clock {:04} - {}",
+                                    element.data,
+                                    element_1.data,
+                                    mnemonic,
+                                    args,
+                                    element.sample_number,
+                                    description
                                 );
-                                println!("{:04X}:   {}", element.address, instr);
+                                println!("{:04X}: {}", element.address, instr);
                                 memory.insert(element.address as usize, instr);
+
+                                for _ in 0..consume {
+                                    element_iter
+                                        .next()
+                                        .expect("consume element should always exist");
+                                }
                             } else {
                                 println!(
                                     "{:04X}:   WARN: unknown partial opcode {:02X}{:02X}",
@@ -303,7 +325,10 @@ fn main() {
                                 );
                                 memory.insert(
                                     element.address as usize,
-                                    format!("WARN: unknown partial opcode {:02X}{:02X}", element.data, element_1.data),
+                                    format!(
+                                        "WARN: unknown partial opcode {:02X}{:02X}",
+                                        element.data, element_1.data
+                                    ),
                                 );
                             }
                         }
@@ -318,10 +343,15 @@ fn main() {
                         format!("WARN: unknown opcode {:02X}", element.data),
                     );
                 }
+            } else if element.ty == BusElementType::Read {
+                println!("## READ: {:04X}: {:02X} ##", element.address, element.data);
             } else if element.ty == BusElementType::Write {
-                println!("WRITE: {:04X}: {:02X}", element.address, element.data);
+                println!("## WRITE: {:04X}: {:02X} ##", element.address, element.data);
             } else if element.ty == BusElementType::Output {
-                println!("OUTPUT: {:04X}: {:02X}", element.address, element.data);
+                println!(
+                    "## OUTPUT: {:04X}: {:02X} ##",
+                    element.address, element.data
+                );
             }
         }
 
@@ -344,18 +374,21 @@ fn get(
         .and_then(|elem| u16::from_str_radix(elem.trim_end_matches('h'), radix).ok())
 }
 
-fn format_args(format: &str, elements: &[BusElement]) -> String {
+fn format_args(format: &str, elements: &[BusElement], consume: &mut usize) -> String {
     let mut res = String::with_capacity(format.len());
     let mut chars = format.chars();
     while let Some(c) = chars.next() {
         if c == '%' {
             let c1 = chars.next().expect("% should have an argument");
             if (c1 as u32) >= ('0' as u32) && (c1 as u32) < ('9' as u32) {
-                res.push_str(&format!("{:02X}", get_elem(c1, elements).data));
+                res.push_str(&format!("{:02X}", get_elem(c1, elements, consume).data));
             } else if c1 == 's' {
                 let c2 = chars.next().expect("%s should have an argument");
                 if (c2 as u32) >= ('0' as u32) && (c2 as u32) < ('9' as u32) {
-                    res.push_str(&format!("{:+02X}", ReallySigned(get_elem(c2, elements).data as i8)));
+                    res.push_str(&format!(
+                        "{:+02X}",
+                        ReallySigned(get_elem(c2, elements, consume).data as i8)
+                    ));
                 }
             }
         } else {
@@ -365,8 +398,9 @@ fn format_args(format: &str, elements: &[BusElement]) -> String {
     res
 }
 
-fn get_elem(c1: char, elements: &[BusElement]) -> BusElement {
+fn get_elem(c1: char, elements: &[BusElement], consume: &mut usize) -> BusElement {
     let i = (c1 as u32 - '0' as u32) as usize;
+    *consume = max(i + 1, *consume);
     let elem = elements[i];
     if elem.ty != BusElementType::Read {
         panic!(
